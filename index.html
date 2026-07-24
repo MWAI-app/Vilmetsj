@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Metsj</title>
+<style>
+:root{
+  --basalt:#0d1014; --leisteen:#161b22; --voeg:#1f2630; --kras:#2b3542;
+  --krijt:#e8e3d9; --krijt-dim:#7d8794; --vonk:#ffc94a;
+  --m1:#c9743a; --m2:#3f8f7d; --m3:#5878a8; --m4:#b8a33e;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  background:radial-gradient(120% 80% at 50% -10%,#1a212b 0%,var(--basalt) 60%);
+  color:var(--krijt);font-family:"Helvetica Neue",Inter,system-ui,sans-serif;
+  display:flex;flex-direction:column;align-items:center;
+  padding:12px 12px calc(12px + env(safe-area-inset-bottom));
+  gap:12px;overflow:hidden;touch-action:manipulation;
+}
+header{width:100%;max-width:440px;display:flex;align-items:flex-end;justify-content:space-between}
+.merk{line-height:.9}
+.merk h1{margin:0;font-size:24px;font-weight:800;letter-spacing:.22em;text-transform:uppercase}
+.merk h1 span{color:var(--vonk)}
+.merk p{margin:6px 0 0;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--krijt-dim)}
+.tellers{display:flex;gap:16px;text-align:right}
+.teller b{display:block;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.teller small{display:block;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--krijt-dim);margin-top:4px}
+#lading.aan{color:var(--vonk)}
+
+#bord{position:relative;background:var(--leisteen);border-radius:4px;
+  box-shadow:0 0 0 1px var(--kras),0 18px 40px -20px #000}
+.holte{position:absolute;background:var(--voeg);border-radius:2px}
+.holte.mik{background:#33404f}
+.holte.fout{background:#4a2420}
+
+.tegel{position:absolute;border-radius:3px;left:0;top:0;overflow:hidden;will-change:transform;
+  transition:transform .26s cubic-bezier(.22,.68,.28,1),opacity .16s linear}
+.tegel::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(160deg,rgba(255,255,255,.22),rgba(0,0,0,.18) 60%)}
+.tegel.weg{opacity:0}
+/* dode lijn: volle rij of vak met gemengde kleuren.
+   De kleur blijft zichtbaar — die heb je nodig om verder te plannen. */
+.tegel.dood::before{content:"";position:absolute;inset:0;z-index:2;
+  background:repeating-linear-gradient(45deg,rgba(0,0,0,.55) 0 3px,rgba(0,0,0,0) 3px 8px);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.45)}
+/* korte oplichting vlak voordat een monochrome lijn verdwijnt */
+.tegel.vonk{box-shadow:inset 0 0 0 2px rgba(255,255,255,.85);filter:brightness(1.45)}
+
+#lade{display:flex;justify-content:space-around;align-items:center;width:100%;max-width:440px;min-height:88px;gap:8px}
+.slot{flex:1;display:flex;align-items:center;justify-content:center;height:88px;border-radius:4px;
+  background:rgba(255,255,255,.02);touch-action:none}
+.slot.leeg{opacity:.2}
+.slot.gekozen{background:rgba(255,201,74,.12);box-shadow:inset 0 0 0 1px rgba(255,201,74,.45)}
+.slot canvas{display:block}
+
+#zwever{position:fixed;left:0;top:0;pointer-events:none;z-index:50;display:none}
+footer{width:100%;max-width:440px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+footer span{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--krijt-dim);line-height:1.6}
+button{font:inherit;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  background:var(--vonk);color:#1a1305;border:0;border-radius:3px;padding:12px 22px;cursor:pointer;white-space:nowrap}
+button.stil{background:transparent;color:var(--krijt-dim);box-shadow:inset 0 0 0 1px var(--kras)}
+#eind{position:fixed;inset:0;background:rgba(9,11,14,.92);display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px;z-index:80;padding:24px;text-align:center}
+#eind.aan{display:flex}
+#eind h2{margin:0;font-size:13px;letter-spacing:.24em;text-transform:uppercase;color:var(--krijt-dim)}
+#eind .punt{font-size:60px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;margin:6px 0}
+#eind p{margin:0 0 18px;font-size:11px;letter-spacing:.08em;color:var(--krijt-dim)}
+/* Opnieuw: vasthouden om te laden, daarna pas bevestigen */
+#opnieuw{position:relative;overflow:hidden}
+#opnieuw .vul{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(255,201,74,.3);pointer-events:none}
+#opnieuw.laadt .vul{width:100%;transition:width .7s linear}
+#opnieuw span.tekst{position:relative;z-index:1}
+
+#bevestig{position:fixed;inset:0;background:rgba(9,11,14,.92);display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px;z-index:90;padding:24px;text-align:center}
+#bevestig.aan{display:flex}
+#bevestig h2{margin:0 0 10px;font-size:13px;letter-spacing:.24em;text-transform:uppercase;color:var(--krijt)}
+#bevestig p{margin:0 0 22px;font-size:11px;letter-spacing:.08em;color:var(--krijt-dim)}
+#bevestig p b{color:var(--vonk);font-variant-numeric:tabular-nums}
+.knoppen{display:flex;gap:10px}
+@media (prefers-reduced-motion:reduce){.tegel{transition-duration:.01ms}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="merk">
+    <h1>Met<span>sj</span></h1>
+    <p>rij zakt 1 · vak zakt 3 · kolom laat gaten</p>
+  </div>
+  <div class="tellers">
+    <div class="teller"><b id="lading">0</b><small>lading</small></div>
+    <div class="teller"><b id="score">0</b><small>punten</small></div>
+    <div class="teller"><b id="best">0</b><small>beste</small></div>
+  </div>
+</header>
+
+<div id="bord"></div>
+
+<div id="lade">
+  <div class="slot" data-slot="0"></div>
+  <div class="slot" data-slot="1"></div>
+  <div class="slot" data-slot="2"></div>
+</div>
+
+<footer>
+  <span id="hint">Eén volle rij, kolom of vak in één kleur ontsteekt.<br>Alles wat op dat moment vol is, gaat mee.</span>
+  <button class="stil" id="opnieuw"><i class="vul"></i><span class="tekst">Opnieuw</span></button>
+</footer>
+
+<canvas id="zwever"></canvas>
+
+<div id="bevestig">
+  <h2>Spel afbreken?</h2>
+  <p>Je staat op <b id="bevScore">0</b> punten. Die zijn dan weg.</p>
+  <div class="knoppen">
+    <button class="stil" id="bevNee">Annuleer</button>
+    <button id="bevJa">Opnieuw</button>
+  </div>
+</div>
+
+<div id="eind">
+  <h2>Geen zet meer mogelijk</h2>
+  <div class="punt" id="eindscore">0</div>
+  <p id="eindtekst"></p>
+  <button id="nogeens">Nog een keer</button>
+</div>
+
+<script>
+/* ============================================================
+   1. CONFIGURATIE
+   ============================================================ */
+const CFG={
+  N:9, BLOK:3,
+  kleurenAantal:3,        // 3 = haalbaar, 4 = zwaar, 2 = mild
+  drempel:1,              // hoeveel monochrome lijnen nodig zijn om te ontsteken
+  ladeKleurGarantie:true, // twee van de drie stukken delen een kleur
+  punten:{cel:1, clear:30, monoBonus:40, reeksStap:15},
+  faseStap:500,           // per zoveel punten worden grote stukken waarschijnlijker
+  animatie:{vonk:150, flits:190, schuif:270}
+};
+const ALLE_KLEUREN=['--m1','--m2','--m3','--m4'];
+
+const VORMEN=[
+  {w:2,g:0,c:[[0,0]]},
+  {w:5,g:0,c:[[0,0],[0,1]]},              {w:5,g:0,c:[[0,0],[1,0]]},
+  {w:6,g:0,c:[[0,0],[0,1],[0,2]]},        {w:6,g:0,c:[[0,0],[1,0],[2,0]]},
+  {w:3,g:1,c:[[0,0],[0,1],[0,2],[0,3]]},  {w:3,g:1,c:[[0,0],[1,0],[2,0],[3,0]]},
+  {w:2,g:1,c:[[0,0],[0,1],[0,2],[0,3],[0,4]]},
+  {w:2,g:1,c:[[0,0],[1,0],[2,0],[3,0],[4,0]]},
+  {w:4,g:0,c:[[0,0],[0,1],[1,0],[1,1]]},
+  {w:1,g:1,c:[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]]},
+  {w:3,g:0,c:[[0,0],[0,1],[1,0]]},        {w:3,g:0,c:[[0,0],[0,1],[1,1]]},
+  {w:3,g:0,c:[[0,0],[1,0],[1,1]]},        {w:3,g:0,c:[[0,1],[1,0],[1,1]]},
+  {w:2,g:1,c:[[0,0],[1,0],[2,0],[2,1]]},  {w:2,g:1,c:[[0,1],[1,1],[2,0],[2,1]]},
+  {w:2,g:1,c:[[0,0],[0,1],[1,0],[2,0]]},  {w:2,g:1,c:[[0,0],[0,1],[1,1],[2,1]]},
+  {w:2,g:1,c:[[0,0],[0,1],[0,2],[1,1]]},  {w:2,g:1,c:[[1,0],[1,1],[1,2],[0,1]]},
+  {w:2,g:1,c:[[0,0],[1,0],[2,0],[1,1]]},  {w:2,g:1,c:[[0,1],[1,1],[2,1],[1,0]]},
+  {w:2,g:1,c:[[0,1],[0,2],[1,0],[1,1]]},  {w:2,g:1,c:[[0,0],[0,1],[1,1],[1,2]]},
+  {w:2,g:1,c:[[0,0],[1,0],[1,1],[2,1]]},  {w:2,g:1,c:[[0,1],[1,0],[1,1],[2,0]]}
+];
+
+/* ============================================================
+   2. OPSLAG
+   ============================================================ */
+const opslag=(()=>{let mem={};return{
+  lees(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v);}catch(e){return k in mem?mem[k]:d;}},
+  schrijf(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){mem[k]=v;}}
+};})();
+
+/* ============================================================
+   3. TOESTAND
+   ============================================================ */
+const N=CFG.N,B=CFG.BLOK;
+const KLEUREN=ALLE_KLEUREN.slice(0,CFG.kleurenAantal);
+let rooster,tegels,volgendId=1,lade;
+let score=0,reeks=0,best=opslag.lees('metsj.best',0);
+let bezig=false,gekozenSlot=-1;
+const bordEl=document.getElementById('bord'),zwever=document.getElementById('zwever');
+let cel=34,voeg=2,blokvoeg=6,holtes=[];
+
+/* ============================================================
+   4. GEOMETRIE
+   ============================================================ */
+function celX(c){return c*(cel+voeg)+Math.floor(c/B)*blokvoeg}
+function celY(r){return r*(cel+voeg)+Math.floor(r/B)*blokvoeg}
+function meetOp(){
+  const ruimte=Math.min(window.innerWidth-24,440,window.innerHeight-300);
+  cel=Math.max(20,Math.min(Math.floor((ruimte-(N-1)*voeg-(B-1)*blokvoeg)/N),46));
+  const m=celX(N-1)+cel;
+  bordEl.style.width=m+'px';bordEl.style.height=m+'px';
+  holtes.forEach((h,i)=>{const r=(i/N)|0,c=i%N;
+    h.style.left=celX(c)+'px';h.style.top=celY(r)+'px';
+    h.style.width=cel+'px';h.style.height=cel+'px';});
+  tegels.forEach(plaatsTegelDom); tekenLade();
+}
+function plaatsTegelDom(t){
+  t.el.style.width=cel+'px';t.el.style.height=cel+'px';
+  t.el.style.transform=`translate(${celX(t.c)}px,${celY(t.r)}px)`;
+}
+function bouwBord(){
+  bordEl.innerHTML='';holtes=[];
+  for(let i=0;i<N*N;i++){const h=document.createElement('div');h.className='holte';bordEl.appendChild(h);holtes.push(h);}
+}
+function holteVan(r,c){return holtes[r*N+c]}
+function nieuweTegel(r,c,kleur){
+  const el=document.createElement('div');el.className='tegel';
+  el.style.background=`var(${kleur})`;bordEl.appendChild(el);
+  const t={id:volgendId++,kleur,r,c,el};tegels.set(t.id,t);plaatsTegelDom(t);return t;
+}
+
+/* ============================================================
+   5. LIJNEN EN KLEUR
+   ============================================================ */
+function past(v,r0,c0){
+  for(const [dr,dc] of v.c){const r=r0+dr,c=c0+dc;
+    if(r<0||r>=N||c<0||c>=N||rooster[r][c]!==null) return false;}
+  return true;
+}
+function ergensPast(v){
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++) if(past(v,r,c)) return true;
+  return false;
+}
+
+/* Alle volle lijnen, met kleur. kleur===null = gemengd, die ruimt niet op. */
+function volleLijnen(){
+  const uit=[];
+  const bekijk=(cellen,soort,sleutel)=>{
+    let kleur=null;
+    for(const [r,c] of cellen){
+      const id=rooster[r][c]; if(id===null) return;
+      const k=tegels.get(id).kleur;
+      if(kleur===null) kleur=k; else if(kleur!==k) kleur='gemengd';
+    }
+    uit.push({soort,sleutel,cellen,kleur:kleur==='gemengd'?null:kleur});
+  };
+  for(let r=0;r<N;r++){const cellen=[];for(let c=0;c<N;c++)cellen.push([r,c]);bekijk(cellen,'rij',r);}
+  for(let c=0;c<N;c++){const cellen=[];for(let r=0;r<N;r++)cellen.push([r,c]);bekijk(cellen,'kol',c);}
+  for(let br=0;br<B;br++)for(let bc=0;bc<B;bc++){
+    const cellen=[];for(let r=br*B;r<br*B+B;r++)for(let c=bc*B;c<bc*B+B;c++)cellen.push([r,c]);
+    bekijk(cellen,'vak',{br,bc});
+  }
+  return uit;
+}
+
+/* Een monochrome lijn is de ontsteker: lukt die, dan gaat ALLES wat vol is mee,
+   ook de gemengde lijnen die al lagen te wachten. Geen monochrome lijn = niets. */
+function bepaalClears(){
+  const vol=volleLijnen();
+  const mono=vol.filter(l=>l.kleur);
+  if(mono.length<CFG.drempel) return [];
+  return vol;
+}
+
+/* ============================================================
+   6. VERSCHUIVEN
+   ============================================================ */
+/* Rij -> alles erboven zakt 1. Vak -> vakken erboven zakken 3.
+   Kolom -> niets. De plaat blijft staan en er blijven negen gaten achter;
+   dat maakt de kolom de enige clear die je opbouw met rust laat. */
+function verschuif(rijen,vakken){
+  for(let bc=0;bc<B;bc++){
+    const kols=[bc*B,bc*B+1,bc*B+2];
+    const vakkenHier=vakken.filter(v=>v.bc===bc).map(v=>v.br);
+    if(vakkenHier.length){
+      const blijft=[0,1,2].filter(br=>!vakkenHier.includes(br));
+      for(const c of kols){
+        const kolom=[];
+        for(const br of blijft) for(let k=0;k<B;k++) kolom.push(rooster[br*B+k][c]);
+        const nieuw=new Array(N-kolom.length).fill(null).concat(kolom);
+        for(let r=0;r<N;r++) rooster[r][c]=nieuw[r];
+      }
+    } else if(rijen.length){
+      for(const c of kols){
+        const kolom=[];
+        for(let r=0;r<N;r++) if(!rijen.includes(r)) kolom.push(rooster[r][c]);
+        const nieuw=new Array(N-kolom.length).fill(null).concat(kolom);
+        for(let r=0;r<N;r++) rooster[r][c]=nieuw[r];
+      }
+    }
+  }
+}
+
+/* ============================================================
+   7. ZET
+   ============================================================ */
+/* Punten: alle meegaande lijnen tellen kwadratisch, dus een grote ontsteking
+   met veel opgespaarde gemengde lijnen loont sterk. */
+function puntenVoor(lijnen){
+  const n=lijnen.length, mono=lijnen.filter(l=>l.kleur).length;
+  return CFG.punten.clear*n*n + mono*CFG.punten.monoBonus + (reeks-1)*CFG.punten.reeksStap;
+}
+
+function plaats(v,r0,c0){
+  bezig=true;
+  for(const [dr,dc] of v.c){
+    const t=nieuweTegel(r0+dr,c0+dc,v.kleur);
+    rooster[r0+dr][c0+dc]=t.id;
+  }
+  score+=v.c.length*CFG.punten.cel;
+
+  const gaatWeg=bepaalClears();
+  if(!gaatWeg.length){ reeks=0; merkLijnen(); ververs(); klaarMetZet(); return; }
+
+  reeks++;
+  score+=puntenVoor(gaatWeg);
+  ververs();
+
+  const rijen=gaatWeg.filter(l=>l.soort==='rij').map(l=>l.sleutel);
+  const vakken=gaatWeg.filter(l=>l.soort==='vak').map(l=>l.sleutel);
+  const weg=new Set();
+  gaatWeg.forEach(l=>l.cellen.forEach(([r,c])=>{if(rooster[r][c]!==null) weg.add(rooster[r][c]);}));
+
+  weg.forEach(id=>tegels.get(id).el.classList.add('vonk'));
+  setTimeout(()=>{
+    weg.forEach(id=>tegels.get(id).el.classList.add('weg'));
+    setTimeout(()=>{
+      weg.forEach(id=>{const t=tegels.get(id);t.el.remove();tegels.delete(id);});
+      for(let r=0;r<N;r++)for(let c=0;c<N;c++) if(weg.has(rooster[r][c])) rooster[r][c]=null;
+      verschuif(rijen,vakken);
+      for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+        const id=rooster[r][c]; if(id===null) continue;
+        const t=tegels.get(id); t.r=r; t.c=c; plaatsTegelDom(t);
+      }
+      setTimeout(()=>{
+        const nog=bepaalClears();          // cascade: schuif kan nieuwe lijnen maken
+        if(nog.length){ vervolgClear(nog); return; }
+        merkLijnen(); ververs(); klaarMetZet();
+      },CFG.animatie.schuif);
+    },CFG.animatie.flits);
+  },CFG.animatie.vonk);
+}
+
+function vervolgClear(gaatWeg){
+  reeks++;
+  score+=puntenVoor(gaatWeg);
+  ververs();
+  const rijen=gaatWeg.filter(l=>l.soort==='rij').map(l=>l.sleutel);
+  const vakken=gaatWeg.filter(l=>l.soort==='vak').map(l=>l.sleutel);
+  const weg=new Set();
+  gaatWeg.forEach(l=>l.cellen.forEach(([r,c])=>{if(rooster[r][c]!==null) weg.add(rooster[r][c]);}));
+  weg.forEach(id=>tegels.get(id).el.classList.add('vonk','weg'));
+  setTimeout(()=>{
+    weg.forEach(id=>{const t=tegels.get(id);t.el.remove();tegels.delete(id);});
+    for(let r=0;r<N;r++)for(let c=0;c<N;c++) if(weg.has(rooster[r][c])) rooster[r][c]=null;
+    verschuif(rijen,vakken);
+    for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+      const id=rooster[r][c]; if(id===null) continue;
+      const t=tegels.get(id); t.r=r; t.c=c; plaatsTegelDom(t);
+    }
+    setTimeout(()=>{
+      const nog=bepaalClears();
+      if(nog.length){ vervolgClear(nog); return; }
+      merkLijnen(); ververs(); klaarMetZet();
+    },CFG.animatie.schuif);
+  },CFG.animatie.flits);
+}
+
+/* Wachtende gemengde lijnen markeren: kleur blijft zichtbaar, arcering erover.
+   Dit is opgespaarde waarde, geen straf — ze gaan mee bij de volgende ontsteking. */
+function merkLijnen(){
+  tegels.forEach(t=>t.el.classList.remove('dood','vonk'));
+  let vastAantal=0;
+  volleLijnen().forEach(l=>{
+    if(l.kleur) return;
+    vastAantal++;
+    l.cellen.forEach(([r,c])=>{const t=tegels.get(rooster[r][c]); if(t) t.el.classList.add('dood');});
+  });
+  const el=document.getElementById('lading');
+  el.textContent=vastAantal; el.classList.toggle('aan',vastAantal>0);
+}
+
+function klaarMetZet(){
+  if(lade.every(p=>p===null)) vulLade();
+  tekenLade(); ververs(); bezig=false;
+  if(!lade.some(p=>p&&ergensPast(p))) eindig();
+}
+
+/* ============================================================
+   8. STUKKEN
+   ============================================================ */
+function fase(){return Math.min(4,Math.floor(score/CFG.faseStap))}
+function gewicht(v){
+  const f=fase();
+  if(v.g) return v.w*(1+f*0.5);
+  return v.c.length<=2 ? v.w/(1+f*0.6) : v.w;
+}
+function trekVorm(kleur){
+  const tot=VORMEN.reduce((s,v)=>s+gewicht(v),0);
+  let x=Math.random()*tot;
+  for(const v of VORMEN){x-=gewicht(v); if(x<=0) return {c:v.c,kleur};}
+  return {c:VORMEN[0].c,kleur};
+}
+function vulLade(){
+  const kies=()=>KLEUREN[(Math.random()*KLEUREN.length)|0];
+  let kl;
+  if(CFG.ladeKleurGarantie){
+    const hoofd=kies(); kl=[hoofd,hoofd,kies()];
+    for(let i=kl.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[kl[i],kl[j]]=[kl[j],kl[i]];}
+  } else kl=[kies(),kies(),kies()];
+  lade=kl.map(k=>trekVorm(k));
+}
+function vormMaat(v){let mr=0,mc=0;for(const [r,c] of v.c){mr=Math.max(mr,r);mc=Math.max(mc,c);}return {h:mr+1,b:mc+1};}
+
+function tekenLade(){
+  document.querySelectorAll('.slot').forEach((slot,i)=>{
+    slot.innerHTML='';
+    slot.classList.toggle('leeg',!lade[i]);
+    slot.classList.toggle('gekozen',gekozenSlot===i);
+    if(!lade[i]) return;
+    const v=lade[i],m=vormMaat(v);
+    const s=Math.min(19,Math.floor(70/Math.max(m.h,m.b)));
+    const cv=document.createElement('canvas'),dpr=window.devicePixelRatio||1;
+    cv.width=m.b*s*dpr;cv.height=m.h*s*dpr;
+    cv.style.width=m.b*s+'px';cv.style.height=m.h*s+'px';
+    const g=cv.getContext('2d');g.scale(dpr,dpr);
+    tekenVorm(g,v,s,2);slot.appendChild(cv);
+  });
+}
+function tekenVorm(g,v,s,gap){
+  const kleur=getComputedStyle(document.documentElement).getPropertyValue(v.kleur).trim();
+  for(const [r,c] of v.c){
+    const x=c*s,y=r*s,w=s-gap;
+    g.fillStyle=kleur;g.beginPath();g.roundRect(x,y,w,w,3);g.fill();
+    const grd=g.createLinearGradient(x,y,x+w,y+w);
+    grd.addColorStop(0,'rgba(255,255,255,.22)');grd.addColorStop(.6,'rgba(0,0,0,.18)');
+    g.fillStyle=grd;g.beginPath();g.roundRect(x,y,w,w,3);g.fill();
+  }
+}
+
+/* ============================================================
+   9. INVOER
+   ============================================================ */
+let sleep=null;
+document.querySelectorAll('.slot').forEach(slot=>{
+  slot.addEventListener('pointerdown',e=>{
+    const i=+slot.dataset.slot;
+    if(bezig||!lade[i]) return;
+    slot.setPointerCapture(e.pointerId);
+    const v=lade[i],m=vormMaat(v);
+    sleep={i,v,m,startX:e.clientX,startY:e.clientY,verplaatst:false,
+      lift:e.pointerType==='touch'?1.4*cel+26:0,mik:null};
+    tekenZwever(v,m); beweeg(e.clientX,e.clientY);
+  });
+  slot.addEventListener('pointermove',e=>{
+    if(!sleep) return;
+    if(Math.hypot(e.clientX-sleep.startX,e.clientY-sleep.startY)>6) sleep.verplaatst=true;
+    beweeg(e.clientX,e.clientY);
+  });
+  slot.addEventListener('pointerup',()=>{
+    if(!sleep) return;
+    const s=sleep;sleep=null;zwever.style.display='none';wisMik();
+    if(!s.verplaatst){gekozenSlot=gekozenSlot===s.i?-1:s.i;tekenLade();return;}
+    if(s.mik){const v=lade[s.i];lade[s.i]=null;gekozenSlot=-1;tekenLade();plaats(v,s.mik.r,s.mik.c);}
+  });
+  slot.addEventListener('pointercancel',()=>{sleep=null;zwever.style.display='none';wisMik();});
+});
+bordEl.addEventListener('pointerup',e=>{
+  if(bezig||gekozenSlot<0) return;
+  const v=lade[gekozenSlot],m=vormMaat(v);
+  const p=celOnder(e.clientX,e.clientY); if(!p) return;
+  const r0=p.r-((m.h-1)>>1),c0=p.c-((m.b-1)>>1);
+  if(past(v,r0,c0)){lade[gekozenSlot]=null;gekozenSlot=-1;tekenLade();plaats(v,r0,c0);}
+});
+function tekenZwever(v,m){
+  const dpr=window.devicePixelRatio||1,s=cel+voeg;
+  zwever.width=m.b*s*dpr;zwever.height=m.h*s*dpr;
+  zwever.style.width=m.b*s+'px';zwever.style.height=m.h*s+'px';
+  const g=zwever.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,m.b*s,m.h*s);tekenVorm(g,v,s,voeg);
+  zwever.style.display='block';
+}
+function beweeg(x,y){
+  const s=sleep,m=s.m,cw=cel+voeg;
+  const left=x-(m.b*cw)/2,top=y-(m.h*cw)/2-s.lift;
+  zwever.style.transform=`translate(${left}px,${top}px)`;
+  const p=celOnder(left+cel/2,top+cel/2);
+  wisMik();
+  if(!p){s.mik=null;return;}
+  const ok=past(s.v,p.r,p.c);
+  s.mik=ok?{r:p.r,c:p.c}:null;
+  for(const [dr,dc] of s.v.c){
+    const r=p.r+dr,c=p.c+dc;
+    if(r<0||r>=N||c<0||c>=N) continue;
+    holteVan(r,c).classList.add(ok?'mik':'fout');
+  }
+}
+function wisMik(){holtes.forEach(h=>h.classList.remove('mik','fout'))}
+function celOnder(px,py){
+  const b=bordEl.getBoundingClientRect(),x=px-b.left,y=py-b.top;
+  let c=-1,r=-1;
+  for(let i=0;i<N;i++){
+    if(x>=celX(i)-voeg&&x<celX(i)+cel+voeg) c=i;
+    if(y>=celY(i)-voeg&&y<celY(i)+cel+voeg) r=i;
+  }
+  return (r<0||c<0)?null:{r,c};
+}
+
+/* ============================================================
+   10. SCHERM
+   ============================================================ */
+function ververs(){
+  document.getElementById('score').textContent=score;
+  document.getElementById('best').textContent=Math.max(best,score);
+}
+function eindig(){
+  const record=score>best;
+  if(record){best=score;opslag.schrijf('metsj.best',best);}
+  document.getElementById('eindscore').textContent=score;
+  document.getElementById('eindtekst').textContent=record?'Nieuw record.':'Beste tot nu toe: '+best;
+  document.getElementById('eind').classList.add('aan');
+}
+function start(){
+  rooster=Array.from({length:N},()=>new Array(N).fill(null));
+  tegels=new Map();volgendId=1;score=0;reeks=0;bezig=false;gekozenSlot=-1;
+  bouwBord();vulLade();meetOp();merkLijnen();ververs();
+  document.getElementById('eind').classList.remove('aan');
+  document.getElementById('bevestig').classList.remove('aan');
+}
+document.getElementById('nogeens').onclick=start;
+
+/* Opnieuw kost twee bewuste handelingen: 0,7 seconde vasthouden, daarna bevestigen. */
+const knopOpnieuw=document.getElementById('opnieuw');
+const label=knopOpnieuw.querySelector('.tekst');
+const bevestig=document.getElementById('bevestig');
+let houdTimer=null, hintTimer=null;
+
+knopOpnieuw.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  knopOpnieuw.setPointerCapture(e.pointerId);
+  clearTimeout(hintTimer); label.textContent='Opnieuw';
+  knopOpnieuw.classList.add('laadt');
+  houdTimer=setTimeout(()=>{
+    houdTimer=null; knopOpnieuw.classList.remove('laadt');
+    document.getElementById('bevScore').textContent=score;
+    bevestig.classList.add('aan');
+  },700);
+});
+['pointerup','pointercancel','pointerleave'].forEach(ev=>
+  knopOpnieuw.addEventListener(ev,()=>{
+    if(!houdTimer) return;                 // al doorgeladen of niet begonnen
+    clearTimeout(houdTimer); houdTimer=null;
+    knopOpnieuw.classList.remove('laadt');
+    label.textContent='Houd vast';         // uitleggen waarom er niets gebeurde
+    hintTimer=setTimeout(()=>label.textContent='Opnieuw',1100);
+  }));
+
+document.getElementById('bevNee').onclick=()=>bevestig.classList.remove('aan');
+document.getElementById('bevJa').onclick=()=>{bevestig.classList.remove('aan');start();};
+window.addEventListener('resize',meetOp);
+start();
+</script>
+</body>
+</html>
