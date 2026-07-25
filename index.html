@@ -373,7 +373,6 @@ function merkLijnen(){
 }
 
 function klaarMetZet(){
-  if(lade.every(p=>p===null)) vulLade();
   tekenLade(); ververs(); bezig=false;
   if(!lade.some(p=>p&&ergensPast(p))) eindig();
 }
@@ -393,14 +392,21 @@ function trekVorm(kleur){
   for(const v of VORMEN){x-=gewicht(v); if(x<=0) return {c:v.c,kleur};}
   return {c:VORMEN[0].c,kleur};
 }
+function kiesKleur(){return KLEUREN[(Math.random()*KLEUREN.length)|0]}
+
+/* Beginlade: nog steeds twee gedeelde kleuren als houvast. */
 function vulLade(){
-  const kies=()=>KLEUREN[(Math.random()*KLEUREN.length)|0];
   let kl;
   if(CFG.ladeKleurGarantie){
-    const hoofd=kies(); kl=[hoofd,hoofd,kies()];
+    const hoofd=kiesKleur(); kl=[hoofd,hoofd,kiesKleur()];
     for(let i=kl.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[kl[i],kl[j]]=[kl[j],kl[i]];}
-  } else kl=[kies(),kies(),kies()];
+  } else kl=[kiesKleur(),kiesKleur(),kiesKleur()];
   lade=kl.map(k=>trekVorm(k));
+}
+
+/* Eén slot bijvullen met een willekeurig stuk in een willekeurige kleur. */
+function vulSlot(i){
+  lade[i]=trekVorm(kiesKleur());
 }
 function vormMaat(v){let mr=0,mc=0;for(const [r,c] of v.c){mr=Math.max(mr,r);mc=Math.max(mc,c);}return {h:mr+1,b:mc+1};}
 
@@ -453,7 +459,7 @@ document.querySelectorAll('.slot').forEach(slot=>{
     if(!sleep) return;
     const s=sleep;sleep=null;zwever.style.display='none';wisMik();
     if(!s.verplaatst){gekozenSlot=gekozenSlot===s.i?-1:s.i;tekenLade();return;}
-    if(s.mik){const v=lade[s.i];lade[s.i]=null;gekozenSlot=-1;tekenLade();plaats(v,s.mik.r,s.mik.c);}
+    if(s.mik){const v=lade[s.i];vulSlot(s.i);gekozenSlot=-1;tekenLade();plaats(v,s.mik.r,s.mik.c);}
   });
   slot.addEventListener('pointercancel',()=>{sleep=null;zwever.style.display='none';wisMik();});
 });
@@ -462,7 +468,7 @@ bordEl.addEventListener('pointerup',e=>{
   const v=lade[gekozenSlot],m=vormMaat(v);
   const p=celOnder(e.clientX,e.clientY); if(!p) return;
   const r0=p.r-((m.h-1)>>1),c0=p.c-((m.b-1)>>1);
-  if(past(v,r0,c0)){lade[gekozenSlot]=null;gekozenSlot=-1;tekenLade();plaats(v,r0,c0);}
+  if(past(v,r0,c0)){const g=gekozenSlot;vulSlot(g);gekozenSlot=-1;tekenLade();plaats(v,r0,c0);}
 });
 function tekenZwever(v,m){
   const dpr=window.devicePixelRatio||1,s=cel+voeg;
